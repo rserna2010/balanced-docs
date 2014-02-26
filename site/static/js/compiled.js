@@ -18,217 +18,858 @@ var lunr=function(t){var e=new lunr.Index;return e.pipeline.add(lunr.stopWordFil
  * @version 1.4.3.1
  */
 ;(function($){var h=$.scrollTo=function(a,b,c){$(window).scrollTo(a,b,c)};h.defaults={axis:'xy',duration:parseFloat($.fn.jquery)>=1.3?0:1,limit:true};h.window=function(a){return $(window)._scrollable()};$.fn._scrollable=function(){return this.map(function(){var a=this,isWin=!a.nodeName||$.inArray(a.nodeName.toLowerCase(),['iframe','#document','html','body'])!=-1;if(!isWin)return a;var b=(a.contentWindow||a).document||a.ownerDocument||a;return/webkit/i.test(navigator.userAgent)||b.compatMode=='BackCompat'?b.body:b.documentElement})};$.fn.scrollTo=function(e,f,g){if(typeof f=='object'){g=f;f=0}if(typeof g=='function')g={onAfter:g};if(e=='max')e=9e9;g=$.extend({},h.defaults,g);f=f||g.duration;g.queue=g.queue&&g.axis.length>1;if(g.queue)f/=2;g.offset=both(g.offset);g.over=both(g.over);return this._scrollable().each(function(){if(e==null)return;var d=this,$elem=$(d),targ=e,toff,attr={},win=$elem.is('html,body');switch(typeof targ){case'number':case'string':if(/^([+-]=)?\d+(\.\d+)?(px|%)?$/.test(targ)){targ=both(targ);break}targ=$(targ,this);if(!targ.length)return;case'object':if(targ.is||targ.style)toff=(targ=$(targ)).offset()}$.each(g.axis.split(''),function(i,a){var b=a=='x'?'Left':'Top',pos=b.toLowerCase(),key='scroll'+b,old=d[key],max=h.max(d,a);if(toff){attr[key]=toff[pos]+(win?0:old-$elem.offset()[pos]);if(g.margin){attr[key]-=parseInt(targ.css('margin'+b))||0;attr[key]-=parseInt(targ.css('border'+b+'Width'))||0}attr[key]+=g.offset[pos]||0;if(g.over[pos])attr[key]+=targ[a=='x'?'width':'height']()*g.over[pos]}else{var c=targ[pos];attr[key]=c.slice&&c.slice(-1)=='%'?parseFloat(c)/100*max:c}if(g.limit&&/^\d+$/.test(attr[key]))attr[key]=attr[key]<=0?0:Math.min(attr[key],max);if(!i&&g.queue){if(old!=attr[key])animate(g.onAfterFirst);delete attr[key]}});animate(g.onAfter);function animate(a){$elem.animate(attr,f,g.easing,a&&function(){a.call(this,e,g)})}}).end()};h.max=function(a,b){var c=b=='x'?'Width':'Height',scroll='scroll'+c;if(!$(a).is('html,body'))return a[scroll]-$(a)[c.toLowerCase()]();var d='client'+c,html=a.ownerDocument.documentElement,body=a.ownerDocument.body;return Math.max(html[scroll],body[scroll])-Math.min(html[d],body[d])};function both(a){return typeof a=='object'?a:{top:a,left:a}}})(jQuery);
-/*!
- * jQuery Cookie Plugin v1.4.0
- * https://github.com/carhartl/jquery-cookie
- *
- * Copyright 2013 Klaus Hartl
- * Released under the MIT license
+(function ($) {
+  var queryParser = function (a) {
+      var i, p, b = {};
+      if (a === "") {
+        return {};
+      }
+      for (i = 0; i < a.length; i += 1) {
+        p = a[i].split('=');
+        if (p.length === 2) {
+          b[p[0]] = decodeURIComponent(p[1].replace(/\+/g, " "));
+        }
+      }
+      return b;
+    };
+  $.queryParams = function () {
+    return queryParser(window.location.search.substr(1).split('&'));
+  };
+  $.hashParams = function () {
+    return queryParser(window.location.hash.substr(1).split('&'));
+  };
+
+
+  var ident = 0;
+
+  window.Swiftype = window.Swiftype || {};
+  Swiftype.root_url = Swiftype.root_url || 'https://api.swiftype.com';
+  Swiftype.pingUrl = function(endpoint, callback) {
+    var to = setTimeout(callback, 350);
+    var img = new Image();
+    img.onload = img.onerror = function() {
+      clearTimeout(to);
+      callback();
+    };
+    img.src = endpoint;
+    return false;
+  };
+  Swiftype.pingAutoSelection = function(engineKey, docId, value, callback) {
+    var params = {
+      t: new Date().getTime(),
+      engine_key: engineKey,
+      doc_id: docId,
+      prefix: value
+    };
+    var url = Swiftype.root_url + '/api/v1/public/analytics/pas?' + $.param(params);
+    Swiftype.pingUrl(url, callback);
+  };
+  Swiftype.findSelectedSection = function() {
+    var sectionText = $.hashParams().sts;
+    if (!sectionText) { return; }
+
+    function normalizeText(str) {
+      var out = str.replace(/\s+/g, '');
+      out = out.toLowerCase();
+      return out;
+    }
+
+    sectionText = normalizeText(sectionText);
+
+    $('h1, h2, h3, h4, h5, h6').each(function(idx) {
+      $this = $(this);
+      if (normalizeText($this.text()).indexOf(sectionText) >= 0) {
+        this.scrollIntoView(true);
+        return false;
+      }
+    });
+  };
+
+  Swiftype.htmlEscape = Swiftype.htmlEscape || function htmlEscape(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  };
+
+  $.fn.swiftype = function (options) {
+    Swiftype.findSelectedSection();
+    var options = $.extend({}, $.fn.swiftype.defaults, options);
+
+    return this.each(function () {
+      var $this = $(this);
+      var config = $.meta ? $.extend({}, options, $this.data()) : options;
+      $this.attr('autocomplete', 'off');
+      $this.data('swiftype-config-autocomplete', config);
+      $this.submitted = false;
+      $this.cache = new LRUCache(10);
+      $this.emptyQueries = [];
+
+      $this.isEmpty = function(query) {
+        return $.inArray(normalize(query), this.emptyQueries) >= 0
+      };
+
+      $this.addEmpty = function(query) {
+        $this.emptyQueries.unshift(normalize(query));
+      };
+
+      var styles = config.dropdownStylesFunction($this);
+      var $swiftypeWidget = $('<div class="swiftype-widget" />');
+      var $listContainer = $('<div />').addClass(config.suggestionListClass).appendTo($swiftypeWidget).css(styles).hide();
+      $swiftypeWidget.appendTo(config.autocompleteContainingElement);
+      var $list = $('<' + config.suggestionListType + ' />').appendTo($listContainer);
+
+      $this.data('swiftype-list', $list);
+
+      $this.abortCurrent = function() {
+        if ($this.currentRequest) {
+          $this.currentRequest.abort();
+        }
+      };
+
+      $this.showList = function() {
+        if (handleFunctionParam(config.disableAutocomplete) === false) {
+          $listContainer.show();
+        }
+      };
+
+
+      $this.hideList = function(sync) {
+        if (sync) {
+          $listContainer.hide();
+        } else {
+          setTimeout(function() { $listContainer.hide(); }, 10);
+        }
+      };
+
+      $this.focused = function() {
+        return $this.is(':focus');
+      };
+
+      $this.submitting = function() {
+        $this.submitted = true;
+      };
+
+      $this.listResults = function() {
+        return $(config.resultListSelector, $list);
+      };
+
+      $this.activeResult = function() {
+        return $this.listResults().filter('.' + config.activeItemClass).first();
+      };
+
+      $this.prevResult = function() {
+        var list = $this.listResults(),
+          currentIdx = list.index($this.activeResult()),
+          nextIdx = currentIdx - 1,
+          next = list.eq(nextIdx);
+        $this.listResults().removeClass(config.activeItemClass);
+        if (nextIdx >= 0) {
+          next.addClass(config.activeItemClass);
+        }
+      };
+
+      $this.nextResult = function() {
+        var list = $this.listResults(),
+          currentIdx = list.index($this.activeResult()),
+          nextIdx = currentIdx + 1,
+          next = list.eq(nextIdx);
+        $this.listResults().removeClass(config.activeItemClass);
+        if (nextIdx >= 0) {
+          next.addClass(config.activeItemClass);
+        }
+      };
+
+      $this.selectedCallback = function(data) {
+        return function() {
+          var value = $this.val(),
+            callback = function() {
+              config.onComplete(data, value);
+            };
+          Swiftype.pingAutoSelection(config.engineKey, data['id'], value, callback);
+        };
+      };
+
+      $this.registerResult = function($element, data) {
+        $element.data('swiftype-item', data);
+        $element.click($this.selectedCallback(data)).mouseover(function () {
+          $this.listResults().removeClass(config.activeItemClass);
+          $element.addClass(config.activeItemClass);
+        });
+      };
+
+      $this.getContext = function() {
+        return {
+          config: config,
+          list: $list,
+          registerResult: $this.registerResult
+        };
+      };
+
+
+      var typingDelayPointer;
+      var suppressKey = false;
+      $this.lastValue = '';
+      $this.keyup(function (event) {
+        if (suppressKey) {
+          suppressKey = false;
+          return;
+        }
+
+        // ignore arrow keys, shift
+        if (((event.which > 36) && (event.which < 41)) || (event.which == 16)) return;
+
+        if (config.typingDelay > 0) {
+          clearTimeout(typingDelayPointer);
+          typingDelayPointer = setTimeout(function () {
+            processInput($this);
+          }, config.typingDelay);
+        } else {
+          processInput($this);
+        }
+      });
+
+      $this.styleDropdown = function() {
+        $listContainer.css(config.dropdownStylesFunction($this));
+      };
+
+      $this.keydown(function (event) {
+        $this.styleDropdown();
+        // enter = 13; up = 38; down = 40; esc = 27
+        var $active = $this.activeResult();
+        switch (event.which) {
+        case 13:
+          if (($active.length !== 0) && ($list.is(':visible'))) {
+            event.preventDefault();
+            $this.selectedCallback($active.data('swiftype-item'))();
+          } else if ($this.currentRequest) {
+            $this.submitting();
+          }
+          $this.hideList();
+          suppressKey = true;
+          break;
+        case 38:
+          event.preventDefault();
+          if ($active.length === 0) {
+            $this.listResults().last().addClass(config.activeItemClass);
+          } else {
+            $this.prevResult();
+          }
+          break;
+        case 40:
+          event.preventDefault();
+          if ($active.length === 0) {
+            $this.listResults().first().addClass(config.activeItemClass);
+          } else if ($active != $this.listResults().last()) {
+            $this.nextResult();
+          }
+          break;
+        case 27:
+          $this.hideList();
+          suppressKey = true;
+          break;
+        default:
+          $this.submitted = false;
+          break;
+        }
+      });
+
+      // opera wants keypress rather than keydown to prevent the form submit
+      $this.keypress(function (event) {
+        if ((event.which == 13) && ($this.activeResult().length > 0)) {
+          event.preventDefault();
+        }
+      });
+
+      // stupid hack to get around loss of focus on mousedown
+      var mouseDown = false;
+      var blurWait = false;
+      $(document).bind('mousedown.swiftype' + ++ident, function () {
+        mouseDown = true;
+      });
+      $(document).bind('mouseup.swiftype' + ident, function () {
+        mouseDown = false;
+        if (blurWait) {
+          blurWait = false;
+          $this.hideList();
+        }
+      });
+      $this.blur(function () {
+        if (mouseDown) {
+          blurWait = true;
+        } else {
+          $this.hideList();
+        }
+      });
+      $this.focus(function () {
+        setTimeout(function() { $this.select() }, 10);
+        if ($this.listResults().filter(':not(.' + config.noResultsClass + ')').length > 0) {
+          $this.showList();
+        }
+      });
+    });
+  };
+
+  var normalize = function(str) {
+    return $.trim(str).toLowerCase();
+  };
+
+  var callRemote = function ($this, term) {
+    $this.abortCurrent();
+
+    var params = {},
+      config = $this.data('swiftype-config-autocomplete');
+
+    params['q'] = term;
+    params['engine_key'] = config.engineKey;
+    params['search_fields'] = handleFunctionParam(config.searchFields);
+    params['fetch_fields'] = handleFunctionParam(config.fetchFields);
+    params['filters'] = handleFunctionParam(config.filters);
+    params['document_types'] = handleFunctionParam(config.documentTypes);
+    params['functional_boosts'] = handleFunctionParam(config.functionalBoosts);
+    params['sort_field'] = handleFunctionParam(config.sortField);
+    params['sort_direction'] = handleFunctionParam(config.sortDirection);
+    params['per_page'] = config.resultLimit;
+
+    var endpoint = Swiftype.root_url + '/api/v1/public/engines/suggest.json';
+    $this.currentRequest = $.ajax({
+      type: 'GET',
+      dataType: 'jsonp',
+      url: endpoint,
+      data: params
+    }).success(function(data) {
+      var norm = normalize(term);
+      if (data.record_count > 0) {
+        $this.cache.put(norm, data.records);
+      } else {
+        $this.addEmpty(norm);
+        $this.data('swiftype-list').empty();
+        $this.hideList();
+        return;
+      }
+      processData($this, data.records, term);
+    });
+  };
+
+  var getResults = function($this, term) {
+    var norm = normalize(term);
+    if ($this.isEmpty(norm)) {
+      $this.data('swiftype-list').empty();
+      $this.hideList();
+      return;
+    }
+    var cached = $this.cache.get(norm);
+    if (cached) {
+      processData($this, cached, term);
+    } else {
+      callRemote($this, term);
+    }
+  };
+
+  // private helpers
+  var processInput = function ($this) {
+      var term = $this.val();
+      if (term === $this.lastValue) {
+        return;
+      }
+      $this.lastValue = term;
+      if ($.trim(term) === '') {
+        $this.data('swiftype-list').empty()
+        $this.hideList();
+        return;
+      }
+      if (typeof $this.data('swiftype-config-autocomplete').engineKey !== 'undefined') {
+        getResults($this, term);
+      }
+    };
+
+  var processData = function ($this, data, term) {
+      var $list = $this.data('swiftype-list'),
+        config = $this.data('swiftype-config-autocomplete');
+
+      $list.empty();
+      $this.hideList(true);
+
+      config.resultRenderFunction($this.getContext(), data);
+
+      var totalItems = $this.listResults().length;
+      if ((totalItems > 0 && $this.focused()) || (config.noResultsMessage !== undefined)) {
+        if ($this.submitted) {
+          $this.submitted = false;
+        } else {
+          $this.showList();
+        }
+      }
+    };
+
+  var defaultResultRenderFunction = function(ctx, results) {
+    var $list = ctx.list,
+      config = ctx.config;
+
+    $.each(results, function(document_type, items) {
+      $.each(items, function(idx, item) {
+        ctx.registerResult($('<li>' + config.renderFunction(document_type, item) + '</li>').appendTo($list), item);
+      });
+    });
+  };
+
+  var defaultRenderFunction = function(document_type, item) {
+    return '<p class="title">' + Swiftype.htmlEscape(item['title']) + '</p>';
+  };
+
+  var defaultOnComplete = function(item, prefix) {
+    window.location = item['url'];
+  };
+
+  var defaultDropdownStylesFunction = function($this) {
+    var config = $this.data('swiftype-config-autocomplete');
+    var $attachEl = config.attachTo ? $(config.attachTo) : $this;
+    var offset = $attachEl.offset();
+    var styles = {
+      'position': 'absolute',
+      'z-index': 9999,
+      'top': offset.top + $attachEl.outerHeight() + 1,
+      'left': offset.left
+    };
+    if (config.setWidth) {
+      styles['width'] = $attachEl.outerWidth() - 2;
+    }
+    return styles;
+  };
+
+  var handleFunctionParam = function(field) {
+    if (field !== undefined) {
+      var evald = field;
+      if (typeof evald === 'function') {
+        evald = evald.call();
+      }
+      return evald;
+    }
+    return undefined;
+  };
+
+	// simple client-side LRU Cache, based on https://github.com/rsms/js-lru
+
+	function LRUCache(limit) {
+	  this.size = 0;
+	  this.limit = limit;
+	  this._keymap = {};
+	}
+
+  LRUCache.prototype.put = function (key, value) {
+    var entry = {
+      key: key,
+      value: value
+    };
+    this._keymap[key] = entry;
+    if (this.tail) {
+      this.tail.newer = entry;
+      entry.older = this.tail;
+    } else {
+      this.head = entry;
+    }
+    this.tail = entry;
+    if (this.size === this.limit) {
+      return this.shift();
+    } else {
+      this.size++;
+    }
+  };
+
+  LRUCache.prototype.shift = function () {
+    var entry = this.head;
+    if (entry) {
+      if (this.head.newer) {
+        this.head = this.head.newer;
+        this.head.older = undefined;
+      } else {
+        this.head = undefined;
+      }
+      entry.newer = entry.older = undefined;
+      delete this._keymap[entry.key];
+    }
+    return entry;
+  };
+
+  LRUCache.prototype.get = function (key, returnEntry) {
+    var entry = this._keymap[key];
+    if (entry === undefined) return;
+    if (entry === this.tail) {
+      return entry.value;
+    }
+    if (entry.newer) {
+      if (entry === this.head) this.head = entry.newer;
+      entry.newer.older = entry.older;
+    }
+    if (entry.older) entry.older.newer = entry.newer;
+    entry.newer = undefined;
+    entry.older = this.tail;
+    if (this.tail) this.tail.newer = entry;
+    this.tail = entry;
+    return returnEntry ? entry : entry.value;
+  };
+
+  LRUCache.prototype.remove = function (key) {
+    var entry = this._keymap[key];
+    if (!entry) return;
+    delete this._keymap[entry.key];
+    if (entry.newer && entry.older) {
+      entry.older.newer = entry.newer;
+      entry.newer.older = entry.older;
+    } else if (entry.newer) {
+      entry.newer.older = undefined;
+      this.head = entry.newer;
+    } else if (entry.older) {
+      entry.older.newer = undefined;
+      this.tail = entry.older;
+    } else {
+      this.head = this.tail = undefined;
+    }
+
+    this.size--;
+    return entry.value;
+  };
+
+  LRUCache.prototype.clear = function () {
+    this.head = this.tail = undefined;
+    this.size = 0;
+    this._keymap = {};
+  };
+
+  if (typeof Object.keys === 'function') {
+    LRUCache.prototype.keys = function () {
+      return Object.keys(this._keymap);
+    };
+  } else {
+    LRUCache.prototype.keys = function () {
+      var keys = [];
+      for (var k in this._keymap) keys.push(k);
+      return keys;
+    };
+  }
+
+  $.fn.swiftype.defaults = {
+    activeItemClass: 'active',
+    attachTo: undefined,
+    documentTypes: undefined,
+    filters: undefined,
+    engineKey: undefined,
+    searchFields: undefined,
+    functionalBoosts: undefined,
+    sortField: undefined,
+    sortDirection: undefined,
+    fetchFields: undefined,
+    noResultsClass: 'noResults',
+    noResultsMessage: undefined,
+    onComplete: defaultOnComplete,
+    resultRenderFunction: defaultResultRenderFunction,
+    renderFunction: defaultRenderFunction,
+    dropdownStylesFunction: defaultDropdownStylesFunction,
+    resultLimit: undefined,
+    suggestionListType: 'ul',
+    suggestionListClass: 'autocomplete',
+    resultListSelector: 'li',
+    setWidth: true,
+    typingDelay: 80,
+    disableAutocomplete: false,
+    autocompleteContainingElement: 'body'
+  };
+
+})(jQuery);
+/*
+ * jQuery hashchange event - v1.3 - 7/21/2010
+ * http://benalman.com/projects/jquery-hashchange-plugin/
+ * 
+ * Copyright (c) 2010 "Cowboy" Ben Alman
+ * Dual licensed under the MIT and GPL licenses.
+ * http://benalman.com/about/license/
  */
-(function(e){if(typeof define==="function"&&define.amd){define(["jquery"],e)}else{e(jQuery)}})(function(e){function n(e){return u.raw?e:encodeURIComponent(e)}function r(e){return u.raw?e:decodeURIComponent(e)}function i(e){return n(u.json?JSON.stringify(e):String(e))}function s(e){if(e.indexOf('"')===0){e=e.slice(1,-1).replace(/\\"/g,'"').replace(/\\\\/g,"\\")}try{e=decodeURIComponent(e.replace(t," "));return u.json?JSON.parse(e):e}catch(n){}}function o(t,n){var r=u.raw?t:s(t);return e.isFunction(n)?n(r):r}var t=/\+/g;var u=e.cookie=function(t,s,a){if(s!==undefined&&!e.isFunction(s)){a=e.extend({},u.defaults,a);if(typeof a.expires==="number"){var f=a.expires,l=a.expires=new Date;l.setTime(+l+f*864e5)}return document.cookie=[n(t),"=",i(s),a.expires?"; expires="+a.expires.toUTCString():"",a.path?"; path="+a.path:"",a.domain?"; domain="+a.domain:"",a.secure?"; secure":""].join("")}var c=t?undefined:{};var h=document.cookie?document.cookie.split("; "):[];for(var p=0,d=h.length;p<d;p++){var v=h[p].split("=");var m=r(v.shift());var g=v.join("=");if(t&&t===m){c=o(g,s);break}if(!t&&(g=o(g))!==undefined){c[m]=g}}return c};u.defaults={};e.removeCookie=function(t,n){if(e.cookie(t)===undefined){return false}e.cookie(t,"",e.extend({},n,{expires:-1}));return!e.cookie(t)}})
+(function($,window,undefined){'$:nomunge';var str_hashchange='hashchange',doc=document,fake_onhashchange,special=$.event.special,doc_mode=doc.documentMode,supports_onhashchange='on'+str_hashchange in window&&(doc_mode===undefined||doc_mode>7);function get_fragment(url){url=url||location.href;var index=url.indexOf('#');return index===-1?'#':url.substr(index);};$.fn[str_hashchange]=function(fn){return fn?this.bind(str_hashchange,fn):this.trigger(str_hashchange);};$.fn[str_hashchange].delay=50;special[str_hashchange]=$.extend(special[str_hashchange],{setup:function(){if(supports_onhashchange){return false;}
+$(fake_onhashchange.start);},teardown:function(){if(supports_onhashchange){return false;}
+$(fake_onhashchange.stop);}});fake_onhashchange=(function(){var self={},timeout_id,last_hash=get_fragment(),fn_retval=function(val){return val;},history_set=fn_retval,history_get=fn_retval;self.start=function(){timeout_id||poll();};self.stop=function(){timeout_id&&clearTimeout(timeout_id);timeout_id=undefined;};function poll(){var hash=get_fragment(),history_hash=history_get(last_hash);if(hash!==last_hash){history_set(last_hash=hash,history_hash);$(window).trigger(str_hashchange);}else if(history_hash!==last_hash){location.href=location.href.replace(/#.*/,'')+history_hash;}
+timeout_id=setTimeout(poll,$.fn[str_hashchange].delay);};window.attachEvent&&!window.addEventListener&&!supports_onhashchange&&(function(){var iframe,iframe_src;self.start=function(){if(!iframe){iframe_src=$.fn[str_hashchange].src;iframe_src=iframe_src&&iframe_src+get_fragment();iframe=$('<iframe tabindex="-1" title="empty"/>').hide().one('load',function(){iframe_src||history_set(get_fragment());poll();}).attr('src',iframe_src||'javascript:0').insertAfter('body')[0].contentWindow;doc.onpropertychange=function(){try{if(event.propertyName==='title'){iframe.document.title=doc.title;}}catch(e){}};}};self.stop=fn_retval;history_get=function(){return get_fragment(iframe.location.href);};history_set=function(hash,history_hash){var iframe_doc=iframe.document,domain=$.fn[str_hashchange].domain;if(hash!==history_hash){iframe_doc.title=doc.title;iframe_doc.open();domain&&iframe_doc.write('<script>document.domain="'+domain+'"</script>');iframe_doc.close();iframe.location.hash=hash;}};})();return self;})();})(jQuery,this);(function ($) {
+  var queryParser = function (a) {
+      var i, p, b = {};
+      if (a === "") {
+        return {};
+      }
+      for (i = 0; i < a.length; i += 1) {
+        p = a[i].split('=');
+        if (p.length === 2) {
+          b[p[0]] = decodeURIComponent(p[1].replace(/\+/g, " "));
+        }
+      }
+      return b;
+    };
+  $.queryParams = function () {
+    return queryParser(window.location.search.substr(1).split('&'));
+  };
+  $.hashParams = function () {
+    return queryParser(window.location.hash.substr(1).split('&'));
+  };
+
+
+  window.Swiftype = window.Swiftype || {};
+  Swiftype.root_url = Swiftype.root_url || 'https://api.swiftype.com';
+  Swiftype.pingUrl = function(endpoint, callback) {
+    var to = setTimeout(callback, 350);
+    var img = new Image();
+    img.onload = img.onerror = function() {
+      clearTimeout(to);
+      callback();
+    };
+    img.src = endpoint;
+    return false;
+  };
+  Swiftype.pingSearchResultClick = function (engineKey, docId, callback) {
+    var params = {
+      t: new Date().getTime(),
+      engine_key: engineKey,
+      doc_id: docId,
+      q: Swiftype.currentQuery
+    };
+    var url = Swiftype.root_url + '/api/v1/public/analytics/pc?' + $.param(params);
+    Swiftype.pingUrl(url, callback);
+  };
+
+  $.fn.swiftypeSearch = function (options) {
+    var options = $.extend({}, $.fn.swiftypeSearch.defaults, options);
+
+    return this.each(function () {
+      var $this = $(this);
+      var config = $.meta ? $.extend({}, options, $this.data()) : options;
+      $this.data('swiftype-config-search', config);
+
+      $this.selectedCallback = function (data) {
+        return function (e) {
+          var $el = $(this);
+          e.preventDefault();
+          Swiftype.pingSearchResultClick(config.engineKey, data['id'], function() {
+            window.location = $el.attr('href');
+          });
+        };
+      };
+
+      $this.registerResult = function ($element, data) {
+        $element.data('swiftype-item', data);
+        $('a', $element).click($this.selectedCallback(data));
+      };
+
+      $this.getContentCache = function () {
+        return $('#' + contentCacheId);
+      };
+
+      var $resultContainer = $(config.resultContainingElement),
+        initialContentOfResultContainer = $resultContainer.html(),
+        contentCacheId = 'st-content-cache',
+        $contentCache = $this.getContentCache();
+
+      var setSearchHash = function (query, page) {
+          location.hash = "stq=" + encodeURIComponent(query) + "&stp=" + page;
+        };
+
+      var submitSearch = function (query, options) {
+          options = $.extend({
+            page: 1
+          }, options);
+          var params = {};
+
+          if (!$contentCache.length) {
+            $resultContainer.after("<div id='" + contentCacheId + "' style='display: none;'></div>");
+            $contentCache.html(initialContentOfResultContainer).hide();
+          }
+          config.loadingFunction(query, $resultContainer);
+
+          Swiftype.currentQuery = query;
+          params['q'] = query;
+          params['engine_key'] = config.engineKey;
+          params['page'] = options.page;
+          params['per_page'] = config.perPage;
+
+          function handleFunctionParam(field) {
+            if (field !== undefined) {
+              var evald = field;
+              if (typeof evald === 'function') {
+                evald = evald.call();
+              }
+              return evald;
+            }
+            return undefined;
+          }
+
+          params['search_fields'] = handleFunctionParam(config.searchFields);
+          params['fetch_fields'] = handleFunctionParam(config.fetchFields);
+          params['filters'] = handleFunctionParam(config.filters);
+          params['document_types'] = handleFunctionParam(config.documentTypes);
+          params['functional_boosts'] = handleFunctionParam(config.functionalBoosts);
+          params['sort_field'] = handleFunctionParam(config.sortField);
+          params['sort_direction'] = handleFunctionParam(config.sortDirection);
+
+          $.getJSON(Swiftype.root_url + "/api/v1/public/engines/search.json?callback=?", params).success(renderSearchResults);
+        };
+
+      $(window).hashchange(function () {
+        var params = $.hashParams();
+        if (params.stq) {
+          submitSearch(params.stq, {
+            page: params.stp
+          });
+        } else {
+          var $contentCache = $this.getContentCache();
+          if ($contentCache.length) {
+            $resultContainer.html($contentCache.html());
+            $contentCache.remove();
+          }
+        }
+      });
+
+      var $containingForm = $this.parents('form');
+      if ($containingForm) {
+        $containingForm.bind('submit', function (e) {
+          e.preventDefault();
+          var searchQuery = $this.val();
+          setSearchHash(searchQuery, 1);
+        });
+      }
+
+      $(document).on('click', '[data-hash][data-page]', function (e) {
+        e.preventDefault();
+        var $this = $(this);
+        setSearchHash($.hashParams().stq, $this.data('page'));
+      });
+
+      var renderSearchResults = function (data) {
+        if (typeof config.preRenderFunction === 'function') {
+          config.preRenderFunction.call($this, data);
+        }
+
+        config.renderResultsFunction($this.getContext(), data);
+
+        if (typeof config.postRenderFunction === 'function') {
+          config.postRenderFunction.call($this, data);
+        }
+      };
+
+      $this.getContext = function () {
+        return {
+          config: config,
+          resultContainer: $resultContainer,
+          registerResult: $this.registerResult
+        };
+      };
+
+      $(window).hashchange(); // if the swiftype query hash is present onload (maybe the user is pressing the back button), submit a query onload
+    });
+  };
+
+  var renderPagination = function (ctx, resultInfo) {
+    var maxPagesType, maxPages = -1;
+    $.each(resultInfo, function(documentType, typeInfo) {
+      if (typeInfo.num_pages > maxPages) {
+        maxPagesType = documentType;
+        maxPages = typeInfo.num_pages;
+      }
+    });
+    var currentPage = resultInfo[maxPagesType].current_page,
+      totalPages = resultInfo[maxPagesType].num_pages;
+    $(renderPaginationForType(maxPagesType, currentPage, totalPages)).appendTo(ctx.resultContainer);
+  };
+
+  var renderPaginationForType = function (type, currentPage, totalPages) {
+      var pages = '<div class="st-page">',
+        previousPage, nextPage;
+      if (currentPage != 1) {
+        previousPage = currentPage - 1;
+        pages = pages + '<a href="#" class="st-prev" data-hash="true" data-page="' + previousPage + '">&laquo; previous</a>';
+      }
+      if (currentPage < totalPages) {
+        nextPage = currentPage + 1;
+        pages = pages + '<a href="#" class="st-next" data-hash="true" data-page="' + nextPage + '">next &raquo;</a>';
+      }
+      pages += '</div>';
+      return pages;
+    };
+
+  var normalize = function (str) {
+      return $.trim(str).toLowerCase();
+    };
+
+  function htmlEscape(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  var defaultRenderResultsFunction = function (ctx, data) {
+    var $resultContainer = ctx.resultContainer,
+      config = ctx.config;
+
+    $resultContainer.html('');
+
+    $.each(data.records, function (documentType, items) {
+      $.each(items, function (idx, item) {
+        ctx.registerResult($(config.renderFunction(documentType, item)).appendTo($resultContainer), item);
+      });
+    });
+
+    renderPagination(ctx, data.info);
+  };
+
+  var defaultRenderFunction = function (document_type, item) {
+      console.log(item);
+      console.log(item.highlight['sections']);
+      return '<div class="st-result"><h3 class="title"><a href="' + item['url'] + '" class="st-search-result-link">' + item.highlight['sections'] + '</a></h3></div>';
+    };
+
+  var defaultLoadingFunction = function(query, $resultContainer) {
+      $resultContainer.html('<p class="st-loading-message">loading...</p>');
+    };
+
+  var defaultPostRenderFunction = function(data) {
+    var totalResultCount = 0;
+    var $resultContainer = this.getContext().resultContainer;
+    if (data['info']) {
+      $.each(data['info'], function(index, value) {
+        totalResultCount += value['total_result_count'];
+      });
+    }
+
+    if (totalResultCount === 0) {
+      $resultContainer.html("<div id='st-no-results' class='st-no-results'>No results found.</div>");
+    }
+  };
+
+  $.fn.swiftypeSearch.defaults = {
+    attachTo: undefined,
+    documentTypes: undefined,
+    filters: undefined,
+    engineKey: undefined,
+    searchFields: undefined,
+    functionalBoosts: undefined,
+    sortField: undefined,
+    sortDirection: undefined,
+    fetchFields: undefined,
+    preRenderFunction: undefined,
+    postRenderFunction: defaultPostRenderFunction,
+    loadingFunction: defaultLoadingFunction,
+    renderResultsFunction: defaultRenderResultsFunction,
+    renderFunction: defaultRenderFunction,
+    perPage: 10
+  };
+})(jQuery);
 ///////////////
 // search.js //
 ///////////////
 
-index = lunr(function () {
-    this.field('title', {boost: 10});
-    this.field('body');
-    this.ref('ref');
+// set up autocomplete
+$("#st-search-input").swiftype({
+    engineKey: "sEWyn6hmsQJYpZsXb3xa"
 });
-var $search_dropdown = $('#search-dropdown');
-var $light_box = $('#light-box');
-var $search_input = $("#search");
-function show_search_results() {
-    $search_dropdown.show();
-    $search_input.addClass('in-search');
-    $light_box.show();
-}
-
-function hide_search_results() {
-    $search_dropdown.hide();
-    $search_input.removeClass('in-search');
-    $light_box.hide();
-}
-
-$(document).ready(function () {
-    //ADD OTHER PAGES
-    $('body').append("<div id='search_extra' style='display: none'></div>");
-    function add_to_search(url) {
-        // GRAB THE STUFF
-        $.get(url, function (data) {
-            var results = $(data).find('section');
-            $.each(results, function (key, value) {
-                var $value = $(value).find(':header').first().find('a.headerlink');
-                if ($value.attr('href').substring(0, 1) == '#') {
-                    var current_href = $value.attr('href');
-                    $value.attr('href', url + current_href);
-                }
-            });
-            $('#search_extra').append(results);
-            create_index();
-
-        });
-    }
-
-    //INDEX THE PAGE
-    function create_index() {
-        $("section").each(function (key, value) {
-
-            var header = $(value).find(':header').first();
-            var title = header.text();
-            var link = header.find('a.headerlink').first().attr('href');
-            var id = $(value).attr('id');
-            var ref = id + "{SPLIT_HERE}" + link;
-            var body = $(this).find('p').first().text();
-            index.add({
-                ref: ref,
-                title: title,
-                body: body
-            });
-        });
-    }
-
-    if($('#overview-content').length){
-        add_to_search('/1.1/api/index.html');
-    }
-    else if($('#api-content').length){
-        add_to_search('/1.1/overview/index.html');
-    }
 
 
-    //KEY BINDINGS
-    $(document).keydown(function (e) {
-        if (e.keyCode == 40) {
-            var $result = $('#search-dropdown li.search-selected').first();
-            if ($result.next().length != 0) {
-                $result.removeClass('search-selected');
-                $result.next().addClass('search-selected');
-            }
-        }
-        if (e.keyCode == 38) {
-            var $result = $('#search-dropdown li.search-selected').first();
-            if ($result.prev().length != 0) {
-                $result.removeClass('search-selected');
-                $result.prev().addClass('search-selected');
-            }
-        }
-        if (e.keyCode == 13) {
-            var $result = $('#search-dropdown li.search-selected').first();
-            if ($result.length != 0) {
-                visit_result($result);
-            }
-            $("#search").blur();
-            e.preventDefault();
-        }
-        if (e.keyCode == 191) {
-            $('#search').focus();
-            e.preventDefault();
-        }
-    });
-
-
-    //SHOW LIST OF RESULTS IF SEARCHING AND LIST NOT EMPTY
-    $search_input.focus(function () {
-        if ($('#search-dropdown li').length > 0) {
-            show_search_results();
-        }
-    });
-
-    function visit_result(item) {
-        $('.search-active').removeClass('search-active');
-        var to = $(item).attr('data-scroll-to');
-        var search_text = $search_input.val();
-        var header = $(to).find(':header').first();
-        var body = $(to).find('p').first();
-        header.html(highlight_match(header.text(), search_text));
-        body.html(highlight_match(body.text(), search_text));
-        if (to.substring(0, 1) == '#') {
-            $.scrollTo(to, 800);
-        }
-        else {
-            window.location = to;
-        }
-        hide_search_results()
-    }
-
-    //CLICK SEARCH RESULT
-    $search_dropdown.on('click', 'li', function () {
-        visit_result(this)
-    });
-
-    //CLOSE SEARCH BOX BY CLICKING ANYWHERE ELSE
-    $('html').click(function () {
-        hide_search_results();
-    });
-    $('#search-section').click(function (event) {
-        event.stopPropagation();
-    });
-
-    //PREFORM THE SEARCH
-    $search_input.keyup(function (e) {
-        if ([37, 38, 39, 40, 13].indexOf(e.keyCode) != -1) {
-            return;
-        }
-        var search_text = $(this).val();
-        var results = index.search(search_text);
-        $search_dropdown.html('');
-        $.each(results, function (key, value) {
-            var resp_array = value['ref'].split('{SPLIT_HERE}');
-            var ref = resp_array[0];
-            var section = $('#' + ref);
-            var link = resp_array[1];
-            var header = highlight_match(section.find(':header').first().text(), search_text);
-            var body = highlight_match(section.find('p').first().text(), search_text);
-            var class_addon = ""
-            if (key == 0) {
-                class_addon = "search-selected"
-            }
-            var result_body = "<li class='result_item " + class_addon +
-                "' data-scroll-to='" +
-                link + "'><h4>" +
-                header + "</h4><p>" +
-                body + "</p></li>";
-            $search_dropdown.append(result_body);
-
-        });
-        if (results.length > 0) {
-            show_search_results();
-        }
-        else {
-            hide_search_results();
-        }
-    });
-    $('ul').on('mouseover', 'li.result_item',
-        function (e) {
-            $(this).addClass('search-selected');
-            $(this).siblings().removeClass('search-selected');
-        }
-    );
-
-    //HIGHLIGHT MATCHES
-    function highlight_match(string_to_check, search_text) {
-        function highlight(string) {
-            return "<span class='text-highlight search-active'>" + string + "</span>";
-        }
-        var min_len = 3;
-        var already_replaced = {};
-        var to_match_split = search_text.split(' ');
-        for (var i = 0; i < to_match_split.length; i++) {
-            var word_to_replace = to_match_split[i];
-            if (word_to_replace.length >= min_len && !(word_to_replace in already_replaced)) {
-                var regex = new RegExp('(' + word_to_replace + ')', 'gi');
-                string_to_check = string_to_check.replace(regex, function (match) {
-                    return highlight(match)
-                });
-                already_replaced[word_to_replace] = true;
-            }
-        }
-        return string_to_check
-    }
-});
-//////////////
+// set up search
+$("#st-search-input").swiftypeSearch({
+    engineKey: "sEWyn6hmsQJYpZsXb3xa",
+    resultContainingElement: "#st-results-container"
+});//////////////
 // docs.js //
 /////////////
+
 function updateQueryStringParameter(uri, key, value) {
     var re = new RegExp("([?&])" + key + "=.*?(&|$)", "i");
     var separator = uri.indexOf("?") > -1 ? "&" : "?";
@@ -259,34 +900,14 @@ function updateNavigation(e) {
     }
     var currentTopic = $active.first().find('a').first();
     window.history.replaceState({}, null, currentTopic.attr('href'));
-    $('.nav.nav-list').scrollTo('.active', 100, {offset : -150});
-}
-function scrollToAnchor(href) {
-    var href = typeof(href) == "string" ? href : $(this).attr("href");
-    var fromTop = 50;
-    if (href != null && href.indexOf("#") == 0) {
-        var $target = $(href);
-        if ($target.length) {
-            $('html, body').animate({ scrollTop: $target.offset().top - fromTop });
-            if (history && "pushState" in history) {
-                history.pushState({}, document.title, window.location.pathname + href);
-                return false;
-            }
-        }
-    }
-}
-function updateLangTitle(text){
-    $('#lang-dropdown-head').html("lang: " + text + " <b class='caret'></b>");
+    $('.nav.nav-list').scrollTo('.active', 100, {offset : -100});
+    //console.log(currentTopic.attr('href'));
 }
 $(document).ready(function () {
-    var langParam = getParameterByName('language', window.location.href)[0];
-    if (langParam != null) {
-        $.cookie('language', langParam, { expires: 7, path: '/' });
-    }
-
-    function fix_sidebar() {
+    //SIDEBAR TO STICK TO BOTTOM
+    function fix_sidebar(){
         var window_height = $(window).height();
-        var top_of_sidebar = 65;
+        var top_of_sidebar = 300;
         var height_of_sidebar = window_height - top_of_sidebar;
         $('.nav.nav-list').css('height', height_of_sidebar);
     }
@@ -295,45 +916,93 @@ $(document).ready(function () {
         fix_sidebar();
     });
 
-    $(".nav.nav-list").mouseover(function() {
-      $('body').addClass('freeze-scroll');
-    });
-    $(".nav.nav-list").mouseout(function() {
-      $('body').removeClass('freeze-scroll');
-    });
+    //FIX ON LOAD
+    fix_sidebar();
 
-    $("li").bind('activate', updateNavigation);
+    //HIDE OVERVIEW REQUEST BOXES:
+    var $overview_content = $('#overview-content');
+    $overview_content.find('.request > p:first-child').hide();
+    $overview_content.find('.response > p:first-child').hide();
 
-    var defaultLang = defaultLang = $.cookie('language');
-    defaultLang = (defaultLang != null) ? defaultLang : 'bash';
-    defaultLang_dd = $("[data-lang='" + defaultLang +"']");
-    updateLangTitle(defaultLang_dd.text());
-    defaultLang_dd.parent().hide();
+   //BIND URL UPDATE
+   $("li").bind('activate', updateNavigation);
+    function update_lang_head(text){
+        var lang_head = $('#lang-dropdown-head');
+        lang_head.html(text + " <b class='caret'></b>")
+    }
+
+    //LOAD DEFAULT LANGUAGE
+    var default_lang = getParameterByName('language', window.location.href);
+    default_lang = (default_lang.length > 0) ? default_lang[0] : 'bash';
+    default_lang_dd = $("[data-lang='" + default_lang +"']");
+    update_lang_head(default_lang_dd.text());
+    default_lang_dd.parent().hide();
     $("[class^='highlight-']").hide();
-    $("[class^='section-']").hide();
-    $(".highlight-" + defaultLang).show();
-    $(".section-" + defaultLang).show();
+    $(".highlight-" + default_lang).show();
     $('.highlight-javascript').show();
     $('.highlight-html').show();
 
-    $('.lang-change').click(function (e) {
-        e.preventDefault();
+    $('a').each(function() {
+        if ($(this).attr('href') != null) {
+            if ($(this).attr('href').indexOf("api.html") != -1 ||
+                $(this).attr('href').indexOf("overview.html") != -1) {
+                    var href = $(this).attr('href');
+                    var insertPos = href.indexOf('.html') + 5;
+                    if (href.indexOf('?') != -1) {
+                        insertPos += 1;
+                    }
+                    $(this).attr('href', [href.slice(0, insertPos), "?language=" + default_lang, href.slice(insertPos)].join(''));
+                }
+        }
+    });
+    
+    //SWAP LANGUAGE METHODS
+    $('.lang-change').click(function () {
         var lang = $(this).attr('data-lang');
-        $.cookie('language', lang, { expires: 7, path: '/' });
         var langtext = $(this).text();
-        updateLangTitle(langtext);
+        update_lang_head(langtext);
         var parent = $(this).parent();
         parent.siblings().show();
         parent.hide();
         $("[class^='highlight-']").hide();
-        $("[class^='section-']").hide();
+        $(".highlight-javascript").show();
         $(".highlight-" + lang).show();
-        $(".section-" + lang).show();
-        $('.highlight-javascript').show();
-        $('.highlight-html').show();
+        var uri = updateQueryStringParameter(window.location.pathname + window.location.search, 'language', lang);
+        uri = uri + '' + window.location.hash;
+        console.log(window.location.hash);
+        console.log(uri);
+        window.location = uri;
+        //window.history.replaceState(null, null, uri);
+        $('[data-spy="scroll"]').each(function () {
+            var $spy = $(this).scrollspy('refresh');
+        });
     });
 
-    scrollToAnchor(window.location.hash);
-    $("body").on("click", "a", scrollToAnchor);
-    fix_sidebar();
+    //SWITCH SELECTORS
+    $('#context-selector > li').click(function (){
+        window.location = $(this).find('a').attr('href');
+    });
+
+    // VERSION SELECTOR
+    var default_version = "rev0";
+    try {
+	    default_version = location.pathname.split('/')[1];
+    }
+    catch(e) {}
+    var version_element = $("[data-version='" + default_version + "']");
+    if(!version_element.length) {
+	    default_version='rev0';
+    	version_element = $("[data-version=rev0]");
+    }
+    version_element.parent().hide();
+    $("#version-dropdown-head").html(version_element.html() + ' <b class="caret"></b>');
+    $("#version-dropdown-head > .version-change").removeClass("version-change").attr('href', '#');
+    $("[class^=rev-]").hide();
+    $(".rev-"+default_version).show();
+    $("a.version-change").click(function() {
+    	var $this = $(this);
+    	var href = $this.attr('data-version');
+    	location.href = location.href.replace(/rev\d+/, href);
+    	return false;
+    });
 });

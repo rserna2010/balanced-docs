@@ -97,6 +97,9 @@ $(SITE_DIR)/static/js/compiled.js: $(wildcard $(SITE_DIR)/static/js/*.js)
 	cat 	$(SITE_DIR)/static/js/bootstrap.min.js 		\
 		$(SITE_DIR)/static/js/lunr.min.js 		\
 		$(SITE_DIR)/static/js/jquery.scrollTo-min.js 	\
+		$(SITE_DIR)/static/js/jquery.swiftype.autocomplete.js 	\
+		$(SITE_DIR)/static/js/jquery.ba-hashchange.min.js 	\
+		$(SITE_DIR)/static/js/jquery.swiftype.search.js	\
 		$(SITE_DIR)/static/js/search.js 		\
 		$(SITE_DIR)/static/js/docs.js 			\
 			> $@

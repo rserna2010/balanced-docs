@@ -45,3 +45,52 @@ span.text-highlight.search-active{
 }
 
 
+#st-search-input {
+  width: @inputFullWidth;
+  background-color: #434854;
+  border-color: #434854;
+}
+
+form input[type="text"] {
+  color: @white;
+  font-family: @baseFontFamily;
+  margin-top: 5px;
+  margin-left: 10px;
+}
+//
+//input[type="text"] {
+//  margin: 5px, 10px, 0px, 0px;
+//}
+
+.autocomplete {
+  background-color: @white;
+  border-color: @inputBorderColor;
+  margin-top: 5px;
+  padding-right: 2px;
+  li {
+    color: #0063B4;
+    font-family: @baseFontFamily;
+  }
+}
+
+#st-results-container{
+  width: @inputFullWidth + 35;
+  position: absolute;
+  z-index: 9999;
+  top: 46px;
+  left: 460px;
+  display: block;
+  background-color: @white;
+  margin-top: 3px;
+  padding-right: 10px;
+  padding-left: 10px;
+  border-style: solid;
+  border-color: #777777;
+  border-width: 1px;
+}
+
+.st-result {
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+  
+}

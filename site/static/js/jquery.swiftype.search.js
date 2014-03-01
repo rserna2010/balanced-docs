@@ -227,7 +227,8 @@
   var defaultRenderFunction = function (document_type, item) {
       console.log(item);
       console.log(item.highlight['sections']);
-      return '<div class="st-result"><h3 class="title"><a href="' + item['url'] + '" class="st-search-result-link">' + item.highlight['sections'] + '</a></h3></div>';
+      console.log(item.highlight['body']);
+      return '<div class="st-result"><h3 class="title"><a href="' + item['url'] + '" class="st-search-result-link">' + item.highlight['sections'] + '</a> ' + item.highlight['body'] + ' </h3></div>';
     };
 
   var defaultLoadingFunction = function(query, $resultContainer) {
@@ -263,6 +264,6 @@
     loadingFunction: defaultLoadingFunction,
     renderResultsFunction: defaultRenderResultsFunction,
     renderFunction: defaultRenderFunction,
-    perPage: 5
+    perPage: 10
   };
 })(jQuery);

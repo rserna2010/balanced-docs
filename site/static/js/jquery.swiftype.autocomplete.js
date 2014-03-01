@@ -391,7 +391,8 @@
   };
 
   var defaultRenderFunction = function(document_type, item) {
-    return '<p class="title">' + Swiftype.htmlEscape(item['title']) + '</p>';
+    console.log(item);
+    return '<p class="title">' + item.highlight['sections'] + '</p><p class="body">' + item.highlight['body'] + '</p>';
   };
 
   var defaultOnComplete = function(item, prefix) {

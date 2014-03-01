@@ -411,7 +411,8 @@ var lunr=function(t){var e=new lunr.Index;return e.pipeline.add(lunr.stopWordFil
   };
 
   var defaultRenderFunction = function(document_type, item) {
-    return '<p class="title">' + Swiftype.htmlEscape(item['title']) + '</p>';
+    console.log(item);
+    return '<p class="title">' + item.highlight['sections'] + '</p><p class="body">' + item.highlight['body'] + '</p>';
   };
 
   var defaultOnComplete = function(item, prefix) {
@@ -813,7 +814,8 @@ timeout_id=setTimeout(poll,$.fn[str_hashchange].delay);};window.attachEvent&&!wi
   var defaultRenderFunction = function (document_type, item) {
       console.log(item);
       console.log(item.highlight['sections']);
-      return '<div class="st-result"><h3 class="title"><a href="' + item['url'] + '" class="st-search-result-link">' + item.highlight['sections'] + '</a></h3></div>';
+      console.log(item.highlight['body']);
+      return '<div class="st-result"><h3 class="title"><a href="' + item['url'] + '" class="st-search-result-link">' + item.highlight['sections'] + '</a> ' + item.highlight['body'] + ' </h3></div>';
     };
 
   var defaultLoadingFunction = function(query, $resultContainer) {

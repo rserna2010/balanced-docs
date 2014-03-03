@@ -812,10 +812,7 @@ timeout_id=setTimeout(poll,$.fn[str_hashchange].delay);};window.attachEvent&&!wi
   };
 
   var defaultRenderFunction = function (document_type, item) {
-      console.log(item);
-      console.log(item.highlight['sections']);
-      console.log(item.highlight['body']);
-      return '<div class="st-result"><h3 class="title"><a href="' + item['url'] + '" class="st-search-result-link">' + item.highlight['sections'] + '</a> ' + item.highlight['body'] + ' </h3></div>';
+      return '<div class="st-result"><p class="title"><a href="' + item['url'] + '" class="st-search-result-link">' + item.highlight['sections'] + '</a> ' + item.highlight['body'] + ' </p></div>';
     };
 
   var defaultLoadingFunction = function(query, $resultContainer) {
@@ -851,7 +848,7 @@ timeout_id=setTimeout(poll,$.fn[str_hashchange].delay);};window.attachEvent&&!wi
     loadingFunction: defaultLoadingFunction,
     renderResultsFunction: defaultRenderResultsFunction,
     renderFunction: defaultRenderFunction,
-    perPage: 10
+    perPage: 3
   };
 })(jQuery);
 ///////////////

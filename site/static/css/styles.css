@@ -6645,14 +6645,22 @@ form input[type="text"] {
   position: absolute;
   z-index: 9999;
   top: 46px;
-  left: 463px;
+  left: 458px;
   display: block;
   background-color: #ffffff;
-  margin-top: 5px;
+  margin-top: 4px;
   padding-right: 10px;
   padding-left: 10px;
   border-style: solid;
   border-color: #777777;
+  border-width: 1px;
+}
+.st-result {
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+}
+.st-result .title {
+  font-size: 13px;
 }
 .code-white {
   background-color: #FFF;

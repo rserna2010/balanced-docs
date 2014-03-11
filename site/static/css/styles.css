@@ -6590,6 +6590,13 @@ ul + table.footnote {
 .gsc-control-wrapper-cse {
   width: 100%;
 }
+.search {
+  height: 50px;
+  width: 396px;
+  border-right-style: solid;
+  border-color: #59606B;
+  border-width: 1px;
+}
 .cse .gsc-branding,
 .gsc-branding {
   display: none;
@@ -6822,7 +6829,7 @@ input.gsc-search-button {
 .gsc-control-cse,
 .gsc-control-cse .gsc-table-result {
   width: 350px;
-  font-family: Arial, sans-serif;
+  font-family: Nimbus Sans;
   font-size: 13px;
 }
 .gsc-control-cse div {
@@ -6995,8 +7002,11 @@ div.gsc-clear-button {
   overflow: auto;
   height: 300px;
   border-collapse: separate;
+  border-color: #D2D6D9;
+  border-style: solid;
+  border-width: 1px;
   background: white;
-  padding: 10px 20px 10px 20px;
+  padding: 10px 22px 10px 23px;
   width: 70%;
   left: -23px;
   position: relative !important;

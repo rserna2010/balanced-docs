@@ -4,5 +4,5 @@
 curl https://api.balancedpayments.com/cards/:card_id/debits \
      -H "Accept-Type: application/vnd.api+json;revision=1.1" \
      -u ak-test-1sKqYrBZG6WYpHphDAsM7ZXFEmJlAn1GE: \
-     -d "amount=10000"
+     -d "amount=10000" \
      -d "order=ORDER_HREF"
